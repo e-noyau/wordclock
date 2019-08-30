@@ -1,2 +1,2 @@
 # wordclock
-Arduino code for a word clock project
+Arduino code for a word clock project.
