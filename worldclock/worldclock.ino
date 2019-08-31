@@ -2,33 +2,48 @@
 #include <NeoPixelAnimator.h>
 #include <RTClib.h>
 
-#define DCHECK
-
-// Set the orientation of the board.
+// Defines the orientation of the board.
 #define LIGHT_SENSOR_ON_TOP 1
 
+
+/*
+ * The RTC Keeps the time
+ */
 RTC_DS3231 rtc;
 
 void setupRTC() {
-  bool result = rtc.begin();
-  DCHECK(result);
+  rtc.begin();
 
   if (rtc.lostPower()) {
+    // This is a kludge until this can be adjusted differently.
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
 }
 
+/*
+ * Access to the display. To address one of the four corner use the right
+ * constant (TopLeft, BottomLeft, BottomRight, TopRight), and for the matrix
+ * use the topo macro, with the x/y position desired. (0,0) is top left.
+ */
+
 // Defines how the matrix is laid out, and how to access the pixels.
 #define NEOPIXEL_PIN       32
+// The pin to control the matrix
+
 #define NEOPIXEL_SIGNALS    4
+// The number of LEDs connected before the start of the matrix.
+
 #define NEOPIXEL_ROWS      11
 #define NEOPIXEL_COLUMNS   10
+// Matrix dimentions.
+
 #define NEOPIXEL_COUNT     (NEOPIXEL_ROWS * NEOPIXEL_COLUMNS + NEOPIXEL_SIGNALS)
 
 // The main object used to access the pixel matrix.
 NeoPixelBrightnessBus<NeoGrbFeature, Neo800KbpsMethod>
     pixels(NEOPIXEL_COUNT, NEOPIXEL_PIN);
 
+// Defines a topology depending on orientation.
 #if defined(LIGHT_SENSOR_ON_TOP)
 #define PIXEL_LAYOUT ColumnMajorAlternating90Layout
 #else
@@ -56,11 +71,16 @@ enum Signals {
 #endif  //LIGHT_SENSOR_ON_TOP
 };
 
-// Animation time management object.
+/*
+ * Animation time management object.
+ */
 NeoPixelAnimator animations(NEOPIXEL_COUNT, NEO_CENTISECONDS);
 
 
-/* Custom French face. Can show time with some less usual variations like
+/*
+ * Constants to match the face.
+ *
+ * Custom French face. Can show time with some less usual variations like
    MINUIT TROIS QUARTS or DEUX HEURES PILE. This also includes all the letters
    of the alphabets as well as ? and !. Letters in lowercase below are not used
    by the clock.
@@ -116,14 +136,17 @@ NeoPixelAnimator animations(NEOPIXEL_COUNT, NEO_CENTISECONDS);
 #define M_QUARTS     0,9, 6
 #define M_PILE       6,9, 4
 
-
+// Stores the bits of the clock that need to be turned on.
 bool updateState[NEOPIXEL_COUNT];
 
+// Lit a segment in updateState.
 void updateSegment(int x, int y, int length) {
   for (int i = x; i <= x + length - 1; i++)
     updateState[topo(i,y)] = true;
 }
 
+// From an hour and a minute updates the updateState variable to display that
+// time on the clock.
 void timeDecoder(int hours, int minutes) {
   int leftover = minutes % 5;
   minutes = minutes - leftover;
@@ -216,29 +239,36 @@ void timeDecoder(int hours, int minutes) {
 
 #define TIME_CHANGE_ANIMATION_SPEED 400
 
+// To avoid refreshing all the time (and possibly interrupting animations) this
+// stores the previous values of hour an minute. If they haven't changed,
+// nothig is updated.
 int previousHour = -1;
 int previousMinute = -1;
 
+// Starts an animation to update the clock to a new time if necessary.
 void showtime() {
   // Live in the future as the time need to be correct by the time the animation
   // ends.
   DateTime now = rtc.now() + TimeSpan(TIME_CHANGE_ANIMATION_SPEED / 100);
 
   if ((now.hour() == previousHour) && (now.minute() == previousMinute)) {
-    return;  // Nothing to update.
+    return;  // Shortcut, nothing to update.
   }
   previousHour = now.hour();
   previousMinute = now.minute();
 
+  // Reset the board to all black
   for (int i = 0; i < NEOPIXEL_COUNT; i++)
     updateState[i] = false;
 
+  // Set the right led to light up
   timeDecoder(now.hour(), now.minute());
   
   RgbColor white = RgbColor(0xff, 0xff, 0xff);
   RgbColor black = RgbColor(0x00, 0x00, 0x00);
-  RgbColor blue = RgbColor(0x10, 0x10, 0xFF);
 
+  // For all the LED animate a change from the current visible state to the new
+  // one.
   for (int index = 0; index < NEOPIXEL_COUNT; index++) {
     RgbColor originalColor = pixels.GetPixelColor(index);
     RgbColor targetColor = updateState[index] ? white : black;
@@ -255,13 +285,9 @@ void showtime() {
   }
 }
 
-
-void setup() {
-  setupRTC();
-  pixels.Begin();
-  pixels.SetBrightness(128);
-}
-
+// This is just a simple test to flash all the LEDS and to verify the
+// orientation: Dark on the bottom, light on top, red on the left, green on the
+// right. This flashes once on startup.
 void setTestColors() {
   RgbColor darkRed    = RgbColor(0x8b, 0x00, 0x00);
   RgbColor lightRed   = RgbColor(0xff, 0x2c, 0x2c);
@@ -307,6 +333,13 @@ void setTestColors() {
       animations.StartAnimation(topo(x,y), 200, animUpdate);
     }
   }
+}
+
+
+void setup() {
+  setupRTC();
+  pixels.Begin();
+  pixels.SetBrightness(128);
 }
 
 int step = 0;
