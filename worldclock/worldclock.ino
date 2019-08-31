@@ -21,6 +21,38 @@ void setupRTC() {
 }
 
 /*
+ * Light sensor. The light sensor controls the brightness of the LEDS, to avoid
+ * permanent little changes the reads are averaged over a long period, and the
+ * change of brightness is animated to not be too jarring.
+ */
+
+#define LDR_PIN 25
+
+class LDRReader {
+  public:
+    LDRReader(float reactionSpeed = .1): _reactionSpeed(reactionSpeed) {
+      pinMode(LDR_PIN, INPUT);
+      _currentLDR = analogRead(LDR_PIN);
+    }
+
+    // Call at each loop() iteration
+    void update() {
+      _currentLDR = analogRead(LDR_PIN) * _reactionSpeed +
+                    _currentLDR * (1 - _reactionSpeed);
+    }
+
+    // Returns a value between 0. (no light) and 1. (much lights)
+    float value() {
+      return _currentLDR / 4095.0;
+    }
+  private:
+    float _currentLDR;
+    float _reactionSpeed;
+};
+
+LDRReader lightSensor;
+
+/*
  * Access to the display. To address one of the four corner use the right
  * constant (TopLeft, BottomLeft, BottomRight, TopRight), and for the matrix
  * use the topo macro, with the x/y position desired. (0,0) is top left.
@@ -335,6 +367,13 @@ void setTestColors() {
   }
 }
 
+void correctBrightness() {
+#define MIN_BRIGHTNESS 10
+#define MAX_BRIGHTNESS 190
+  float range = MAX_BRIGHTNESS - MIN_BRIGHTNESS;
+  float corrected = (range * lightSensor.value()) + MIN_BRIGHTNESS;
+  pixels.SetBrightness((int)corrected);
+}
 
 void setup() {
   setupRTC();
@@ -353,10 +392,13 @@ void loop() {
     case 1:
       if (!animations.IsAnimating())
         step += 1;
+      break;
     case 2:
       showtime();
+      correctBrightness();
       break;
   }
   animations.UpdateAnimations();
   pixels.Show();
+  lightSensor.update();
 }
