@@ -52,7 +52,7 @@ void setupRTC() {
  * change of brightness is animated to not be too jarring.
  */
 
-#define LDR_PIN 25
+#define LDR_PIN 33
 
 class LDRReader {
   public:
@@ -315,7 +315,7 @@ int previousHour = -1;
 int previousMinute = -1;
 
 // Starts an animation to update the clock to a new time if necessary.
-void showtime() {
+void showtime(int animationSpeed) {
   // Live in the future as the time need to be correct by the time the animation
   // ends.
   DateTime now = rtc.now() + TimeSpan(TIME_CHANGE_ANIMATION_SPEED / 100);
@@ -336,6 +336,11 @@ void showtime() {
   RgbColor white = RgbColor(0xff, 0xff, 0xff);
   RgbColor black = RgbColor(0x00, 0x00, 0x00);
 
+  DLOG("Time: ");
+  DLOG(now.hour());
+  DLOG(":");
+  DLOGLN(now.minute());
+
   // For all the LED animate a change from the current visible state to the new
   // one.
   for (int index = 0; index < NEOPIXEL_COUNT; index++) {
@@ -350,7 +355,7 @@ void showtime() {
               originalColor, targetColor, progress);
         pixels.SetPixelColor(index, updatedColor);
     };
-    animations.StartAnimation(index, TIME_CHANGE_ANIMATION_SPEED, animUpdate);
+    animations.StartAnimation(index, animationSpeed, animUpdate);
   }
 }
 
@@ -410,8 +415,8 @@ void setTestColors() {
 //
 
 class BrightnessController {
-#define MIN_BRIGHTNESS 10
-#define MAX_BRIGHTNESS 220
+#define MIN_BRIGHTNESS 40
+#define MAX_BRIGHTNESS 255
  private:
    // The board is animating toward that value, or already reached it.
   float _target;
@@ -491,7 +496,15 @@ void loop() {
         step += 1;
       break;
     case 2:
-      showtime();
+      // If the "boot" button is pressed, move time forward. It's a crude way to
+      // set the time.
+      bool buttonPressed = digitalRead(0) != HIGH;
+      if ((!animations.IsAnimating()) && (buttonPressed)) {
+        DateTime now = rtc.now() + TimeSpan(20);
+        rtc.adjust(now);
+      }
+      // Adjust the display to show the right time
+      showtime(buttonPressed? 50 : TIME_CHANGE_ANIMATION_SPEED);
       break;
   }
   brightnessController.update();
