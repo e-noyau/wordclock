@@ -39,11 +39,12 @@ RTC_DS3231 rtc;
 void setupRTC() {
   bool result = rtc.begin();
   DCHECK(result, "RTC didn't start");
-
+  /*
   if (rtc.lostPower()) {
     // This is a kludge until this can be adjusted differently.
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
+  */
 }
 
 /*
@@ -151,18 +152,20 @@ NeoPixelAnimator animations(NEOPIXEL_COUNT, NEO_CENTISECONDS);
  *
  * Custom French face. Can show time with some less usual variations like
    MINUIT TROIS QUARTS or DEUX HEURES PILE. This also includes all the letters
-   of the alphabets as well as ? and !. Letters in lowercase below are not used
+   of the alphabets as well as !. Letters in lowercase below are not used
    by the clock.
+
+  LOl, il manque le DIX!
 
   ILbESTjDEUX
   QUATRETROIS
   NEUFUNESEPT
   HUITSIXCINQ
+  MIDIXMINUIT
   ONZEwHEURES
-  MIDIkMINUIT
   MOINSyLEDIX
   ETTROISDEMI
-  VINGT-CINQ?
+  VINGT-CINQk
   QUARTSPILE!
 */
 
@@ -182,13 +185,13 @@ NeoPixelAnimator animations(NEOPIXEL_COUNT, NEO_CENTISECONDS);
 #define H_HUIT       0,3, 4
 #define H_NEUF       0,2, 4
 #define H_DIX        2,4, 3
-#define H_ONZE       0,4, 4
+#define H_ONZE       0,5, 4
                     
-#define H_HEURE      5,4, 5
-#define H_HEURES     5,4, 6
+#define H_HEURE      5,5, 5
+#define H_HEURES     5,5, 6
                     
-#define H_MIDI       0,5, 4
-#define H_MINUIT     5,5, 6
+#define H_MIDI       0,4, 4
+#define H_MINUIT     5,4, 6
                     
 #define M_MOINS      0,6, 5
 #define M_LE         6,6, 2
