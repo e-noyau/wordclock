@@ -5,6 +5,31 @@
 // Defines the orientation of the board.
 #define LIGHT_SENSOR_ON_TOP 1
 
+// Comment the define of DEBUG to remove all debugging logging. If debug logging
+// is off it is possible to enable various plotting data to see what's going on
+// with the various sensors.
+#define DEBUG 1
+#if defined(DEBUG)
+#define DLOG(...) Serial.print(__VA_ARGS__)
+#define DLOGLN(...) Serial.println(__VA_ARGS__)
+#define DCHECK(condition, ...) \
+    if (!(condition)) {        \
+      DLOG("DCHECK Line ");    \
+      DLOG(__LINE__);          \
+      DLOG(": (");             \
+      DLOG(#condition);        \
+      DLOG(") ");              \
+      DLOGLN(__VA_ARGS__); }
+#else
+// To use the plotter to see variables, uncomment the one you want to see
+// #define PLOT_LDR 1
+// #define PLOT_BRIGHTNESS 1
+
+
+#define DLOG(...)
+#define DLOGLN(...)
+#define DCHECK(condition, ...)
+#endif // defined(DEBUG)
 
 /*
  * The RTC Keeps the time
@@ -12,7 +37,8 @@
 RTC_DS3231 rtc;
 
 void setupRTC() {
-  rtc.begin();
+  bool result = rtc.begin();
+  DCHECK(result, "RTC didn't start");
 
   if (rtc.lostPower()) {
     // This is a kludge until this can be adjusted differently.
@@ -31,16 +57,26 @@ void setupRTC() {
 class LDRReader {
   public:
     LDRReader(float reactionSpeed = .1): _reactionSpeed(reactionSpeed) {
+      DCHECK(reactionSpeed <= 1.0, "Too much");
+      DCHECK(reactionSpeed > 0, "Not enough");
+
       pinMode(LDR_PIN, INPUT);
       _currentLDR = analogRead(LDR_PIN);
     }
 
     // Call at each loop() iteration
     void update() {
-      _currentLDR = analogRead(LDR_PIN) * _reactionSpeed +
+      int instantValue = analogRead(LDR_PIN);
+      _currentLDR = instantValue * _reactionSpeed +
                     _currentLDR * (1 - _reactionSpeed);
-    }
 
+      DCHECK(_currentLDR <= 4095.0, _currentLDR);
+      DCHECK(_currentLDR >= 0.0, _currentLDR);
+#if defined(PLOT_LDR)
+      Serial.println(_currentLDR);
+      Serial.print(" ");
+#endif  // PLOT_LDR
+    }
     // Returns a value between 0. (no light) and 1. (much lights)
     float value() {
       return _currentLDR / 4095.0;
@@ -50,7 +86,6 @@ class LDRReader {
     float _reactionSpeed;
 };
 
-LDRReader lightSensor;
 
 /*
  * Access to the display. To address one of the four corner use the right
@@ -105,6 +140,8 @@ enum Signals {
 
 /*
  * Animation time management object.
+ * Uses centiseconds as precision, so an animation can range from 1/100 of a
+ * second to a little bit more than 10 minutes.
  */
 NeoPixelAnimator animations(NEOPIXEL_COUNT, NEO_CENTISECONDS);
 
@@ -367,15 +404,75 @@ void setTestColors() {
   }
 }
 
-void correctBrightness() {
+//
+// Create this object and then call update() from the main loop(). This
+// controls the brighness based on the light value.
+//
+
+class BrightnessController {
 #define MIN_BRIGHTNESS 10
-#define MAX_BRIGHTNESS 190
-  float range = MAX_BRIGHTNESS - MIN_BRIGHTNESS;
-  float corrected = (range * lightSensor.value()) + MIN_BRIGHTNESS;
-  pixels.SetBrightness((int)corrected);
-}
+#define MAX_BRIGHTNESS 220
+ private:
+   // The board is animating toward that value, or already reached it.
+  float _target;
+  // The light sensor.
+  LDRReader _lightSensor;
+  // The controller for brightness animations.
+  NeoPixelAnimator _animations;
+
+ public:
+  BrightnessController(): _target(128), _animations(1, NEO_CENTISECONDS) {
+    pixels.SetBrightness((uint8_t)_target);
+  }
+
+  void update() {
+    _animations.UpdateAnimations();
+    _lightSensor.update();
+
+    float range = MAX_BRIGHTNESS - MIN_BRIGHTNESS;
+    float corrected = (range * _lightSensor.value()) + MIN_BRIGHTNESS;
+  
+    if (abs(_target - corrected) < 5.) {
+      return;  // don't adjust for small changes.
+    }
+    // Store the target value as an animation is about to start
+    _target = corrected;
+
+    // The starting state is the current brightness value on the board.
+    float currentBrightness = (float)pixels.GetBrightness();
+
+    DLOG("Brightness animating from ");
+    DLOG(currentBrightness, 1);
+    DLOG(" to ");
+    DLOGLN(corrected, 1);
+
+    AnimUpdateCallback animUpdate = [=](const AnimationParam& param) {
+      float progress = NeoEase::QuadraticIn(param.progress);
+      float brightness = (corrected - currentBrightness) * progress
+                       + currentBrightness;
+
+      pixels.SetBrightness((uint8_t)brightness);
+#if defined(PLOT_BRIGHTNESS)
+        Serial.println(brightness);
+        Serial.print(" ");
+#endif  // PLOT_BRIGHTNESS
+
+#if defined(DEBUG)
+      if (param.state == AnimationState_Completed) {
+        DLOG("Brightness animation ended at ");
+        DLOGLN(brightness, 1);
+      }
+#endif  // DEBUG
+   };
+   _animations.StartAnimation(0, 1000, animUpdate);
+ }
+};
+
+BrightnessController brightnessController;
 
 void setup() {
+  Serial.begin(115200);
+  
   setupRTC();
   pixels.Begin();
   pixels.SetBrightness(128);
@@ -395,10 +492,9 @@ void loop() {
       break;
     case 2:
       showtime();
-      correctBrightness();
       break;
   }
+  brightnessController.update();
   animations.UpdateAnimations();
   pixels.Show();
-  lightSensor.update();
 }
