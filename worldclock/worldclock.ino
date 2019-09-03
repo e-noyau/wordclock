@@ -39,12 +39,16 @@ RTC_DS3231 rtc;
 void setupRTC() {
   bool result = rtc.begin();
   DCHECK(result, "RTC didn't start");
-  /*
+  
+  // To set the date an without unplugging everything and removing the battery
+  // just uncomment this next line.
+  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+
   if (rtc.lostPower()) {
+    DCHECK("This should only happens on first or if the battery is removed.");
     // This is a kludge until this can be adjusted differently.
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
-  */
 }
 
 /*
@@ -155,8 +159,6 @@ NeoPixelAnimator animations(NEOPIXEL_COUNT, NEO_CENTISECONDS);
    of the alphabets as well as !. Letters in lowercase below are not used
    by the clock.
 
-  LOl, il manque le DIX!
-
   ILbESTjDEUX
   QUATRETROIS
   NEUFUNESEPT
@@ -224,7 +226,7 @@ void timeDecoder(int hours, int minutes) {
   minutes = minutes - leftover;
 
   if (minutes >= 35)
-    hours += 1;  // Switch to "TO" minutes the next hour
+    hours = (hours + 1) % 24;  // Switch to "TO" minutes the next hour
   
   updateSegment(S_IL);
   updateSegment(S_EST);
@@ -256,6 +258,9 @@ void timeDecoder(int hours, int minutes) {
       updateSegment(H_ONZE); break;
     case 12: 
       updateSegment(H_MIDI); break;
+    default:
+      DLOG("Invalid hour ");
+      DLOGLN(hours);
   }
   switch (hours) {
     case  0: case 12:
@@ -292,7 +297,8 @@ void timeDecoder(int hours, int minutes) {
     case 55:
       updateSegment(M_MOINS); updateSegment(M_CINQ); break;
     default:
-      updateSegment(10, 9, 1);
+      DLOG("Invalid minute ");
+      DLOGLN(minutes);
   }
   
   switch (leftover) {
@@ -418,7 +424,7 @@ void setTestColors() {
 //
 
 class BrightnessController {
-#define MIN_BRIGHTNESS 40
+#define MIN_BRIGHTNESS 20
 #define MAX_BRIGHTNESS 255
  private:
    // The board is animating toward that value, or already reached it.
@@ -479,8 +485,11 @@ class BrightnessController {
 BrightnessController brightnessController;
 
 void setup() {
+#if DEBUG
   Serial.begin(115200);
-  
+  delay(2000); // Give some time to connect.
+  DLOGLN("Boot");
+#endif
   setupRTC();
   pixels.Begin();
   pixels.SetBrightness(128);
@@ -507,7 +516,7 @@ void loop() {
         rtc.adjust(now);
       }
       // Adjust the display to show the right time
-      showtime(buttonPressed? 50 : TIME_CHANGE_ANIMATION_SPEED);
+      showtime(buttonPressed? 20 : TIME_CHANGE_ANIMATION_SPEED);
       break;
   }
   brightnessController.update();
