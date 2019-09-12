@@ -1,0 +1,9 @@
+[submodule "libraries/IotWebConf"]
+	path = libraries/IotWebConf
+	url = https://github.com/prampec/IotWebConf.git
+[submodule "libraries/NeoPixelBus"]
+	path = libraries/NeoPixelBus
+	url = git@github.com:Makuna/NeoPixelBus.git
+[submodule "libraries/RTClib"]
+	path = libraries/RTClib
+	url = git@github.com:adafruit/RTClib.git
