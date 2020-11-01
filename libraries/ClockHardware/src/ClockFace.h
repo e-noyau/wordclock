@@ -53,3 +53,10 @@ class FrenchClockFace : public ClockFace {
 
   virtual bool stateForTime(int hour, int minute, int second);
 };
+
+class EnglishClockFace : public ClockFace {
+ public:
+  EnglishClockFace(LightSensorPosition position) : ClockFace(position) {};
+
+  virtual bool stateForTime(int hour, int minute, int second);
+};
