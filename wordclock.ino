@@ -28,6 +28,7 @@ void setupRTC() {
   }
 }
 
+// For the English clock face, use EnglishClockFace instead below.
 FrenchClockFace clockFace(ClockFace::LightSensorPosition::Bottom);
 Display display(clockFace);
 

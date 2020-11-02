@@ -229,3 +229,166 @@ bool FrenchClockFace::stateForTime(int hour, int minute, int second) {
   }
   return true;
 }
+
+// Constants to match the EnglishClockFace.
+//
+// Letters in lowercase below are not used by the clock.
+
+// To display AM/PM, uncomment this.
+//#define SHOW_AMPM
+
+// IT l IS as AM PM
+// A c QUARTER dc
+// TWENTY FIVE x
+// HALF s TEN u TO
+// PAST bu NINE
+// ONE SIX THREE
+// FOUR FIVE TWO
+// EIGHT ELEVEN
+// SEVEN TWELVE
+// TEN sz O'CLOCK
+
+// All the segments of words on the board. The first too numbers are the
+// coordinate of the first letter of the word, the last is the length. A word
+// must always be on one row.
+#define EN_S_IT         0,0, 2
+#define EN_S_IS         3,0, 2
+
+#define EN_H_ONE        0,5, 3
+#define EN_H_TWO        8,6, 3
+#define EN_H_THREE      6,5, 5
+#define EN_H_FOUR       0,6, 4
+#define EN_H_FIVE       4,6, 4
+#define EN_H_SIX        3,5, 3
+#define EN_H_SEVEN      0,8, 5
+#define EN_H_EIGHT      0,7, 5
+#define EN_H_NINE       7,4, 4
+#define EN_H_TEN        0,9, 3
+#define EN_H_ELEVEN     5,7, 6
+#define EN_H_TWELVE     5,8, 6
+
+#define EN_H_AM         7,0, 2
+#define EN_H_PM         9,0, 2
+
+#define EN_M_A          0,1, 1
+#define EN_M_PAST       0,4, 4
+#define EN_M_TO         9,3, 2
+
+#define EN_M_TEN        5,3, 3
+#define EN_M_QUARTER    2,1, 7
+#define EN_M_TWENTY     0,2, 6
+#define EN_M_TWENTYFIVE 0,2, 10
+#define EN_M_FIVE       6,2, 4
+#define EN_M_HALF       0,3, 4
+#define EN_M_QUART      0,9, 5
+#define EN_M_QUARTS     0,9, 6
+
+#define EN_M_OCLOCK     5,9, 7
+
+bool EnglishClockFace::stateForTime(int hour, int minute, int second) {
+  if (hour == _hour && minute == _minute) {
+    return false;
+  }
+  _hour = hour; _minute = minute;
+
+  DLOGLN("update state");
+
+  // Reset the board to all black
+  for (int i = 0; i < NEOPIXEL_COUNT; i++)
+    _state[i] = false;
+
+  int leftover = minute % 5;
+  minute = minute - leftover;
+
+  if (minute >= 35)
+    hour = (hour + 1) % 24;  // Switch to "TO" minutes the next hour
+  
+  updateSegment(EN_S_IT);
+  updateSegment(EN_S_IS);
+
+  #if defined(SHOW_AMPM)
+  if (show_ampm) {
+    if (hour < 13) {
+      updateSegment(EN_H_AM);
+    } else {
+      updateSegment(EN_H_PM);
+    }
+  }
+  #endif // defined(SHOW_AMPM)
+
+  switch (hour) {
+    case  0:
+      updateSegment(EN_H_TWELVE); break;
+    case  1: case 13:
+      updateSegment(EN_H_ONE); break;
+    case  2: case 14:
+      updateSegment(EN_H_TWO ); break;
+    case  3: case 15:
+      updateSegment(EN_H_THREE); break;
+    case  4: case 16:
+      updateSegment(EN_H_FOUR  ); break;
+    case  5: case 17:
+      updateSegment(EN_H_FIVE); break;
+    case  6: case 18:
+      updateSegment(EN_H_SIX); break;
+    case  7: case 19:
+      updateSegment(EN_H_SEVEN); break;
+    case  8: case 20:
+      updateSegment(EN_H_EIGHT); break;
+    case  9: case 21:
+      updateSegment(EN_H_NINE); break;
+    case 10: case 22:
+      updateSegment(EN_H_TEN); break;
+    case 11: case 23:
+      updateSegment(EN_H_ELEVEN); break;
+    case 12: 
+      updateSegment(EN_H_TWELVE); break;
+    default:
+      DLOG("Invalid hour ");
+      DLOGLN(hour);
+  }
+
+  switch (minute) {
+    case 0:
+      updateSegment(EN_M_OCLOCK); break;
+    case 5:
+      updateSegment(EN_M_FIVE); updateSegment(EN_M_PAST); break;
+    case 10:
+      updateSegment(EN_M_TEN); updateSegment(EN_M_PAST); break;
+    case 15:
+      updateSegment(EN_M_A); updateSegment(EN_M_QUARTER); updateSegment(EN_M_PAST); break;
+    case 20:
+      updateSegment(EN_M_TWENTY); updateSegment(EN_M_PAST); break;
+    case 25:
+      updateSegment(EN_M_TWENTYFIVE); updateSegment(EN_M_PAST); break;
+    case 30:
+      updateSegment(EN_M_HALF); updateSegment(EN_M_PAST); break;
+    case 35:
+      updateSegment(EN_M_TWENTYFIVE); updateSegment(EN_M_TO); break;
+    case 40:
+      updateSegment(EN_M_TWENTY); updateSegment(EN_M_TO); break;
+    case 45:
+      updateSegment(EN_M_A); updateSegment(EN_M_QUARTER); updateSegment(EN_M_TO); break;
+    case 50:
+      updateSegment(EN_M_TEN); updateSegment(EN_M_TO); break;
+    case 55:
+      updateSegment(EN_M_FIVE); updateSegment(EN_M_TO); break;
+    default:
+      DLOG("Invalid minute ");
+      DLOGLN(minute);
+  }
+  
+  switch (leftover) {
+    case 4:
+      _state[mapMinute(TopLeft)] = true;
+    case 3:  // fall through
+      _state[mapMinute(BottomLeft)] = true;
+    case 2:  // fall through
+      _state[mapMinute(BottomRight)] = true;
+    case 1:  // fall through
+      _state[mapMinute(TopRight)] = true;
+    case 0:  // fall through
+      break;
+  }
+  return true;
+}
